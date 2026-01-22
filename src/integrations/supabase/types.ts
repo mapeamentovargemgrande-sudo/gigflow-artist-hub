@@ -14,16 +14,320 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      calendar_events: {
+        Row: {
+          city: string | null
+          contract_id: string | null
+          contract_status: Database["public"]["Enums"]["contract_status"] | null
+          created_at: string
+          created_by: string
+          end_time: string | null
+          fee: number | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          organization_id: string
+          stage: Database["public"]["Enums"]["funnel_stage"] | null
+          start_time: string
+          state: string | null
+          status: Database["public"]["Enums"]["event_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          contract_id?: string | null
+          contract_status?:
+            | Database["public"]["Enums"]["contract_status"]
+            | null
+          created_at?: string
+          created_by: string
+          end_time?: string | null
+          fee?: number | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          organization_id: string
+          stage?: Database["public"]["Enums"]["funnel_stage"] | null
+          start_time: string
+          state?: string | null
+          status?: Database["public"]["Enums"]["event_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          contract_id?: string | null
+          contract_status?:
+            | Database["public"]["Enums"]["contract_status"]
+            | null
+          created_at?: string
+          created_by?: string
+          end_time?: string | null
+          fee?: number | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          organization_id?: string
+          stage?: Database["public"]["Enums"]["funnel_stage"] | null
+          start_time?: string
+          state?: string | null
+          status?: Database["public"]["Enums"]["event_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          created_at: string
+          created_by: string
+          document_url: string | null
+          id: string
+          lead_id: string
+          organization_id: string
+          status: Database["public"]["Enums"]["contract_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          document_url?: string | null
+          id?: string
+          lead_id: string
+          organization_id: string
+          status?: Database["public"]["Enums"]["contract_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          document_url?: string | null
+          id?: string
+          lead_id?: string
+          organization_id?: string
+          status?: Database["public"]["Enums"]["contract_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          city: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          contractor_name: string
+          created_at: string
+          created_by: string
+          fee: number | null
+          id: string
+          notes: string | null
+          organization_id: string
+          origin: string | null
+          stage: Database["public"]["Enums"]["funnel_stage"]
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          contractor_name: string
+          created_at?: string
+          created_by: string
+          fee?: number | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          origin?: string | null
+          stage?: Database["public"]["Enums"]["funnel_stage"]
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          contractor_name?: string
+          created_at?: string
+          created_by?: string
+          fee?: number | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          origin?: string | null
+          stage?: Database["public"]["Enums"]["funnel_stage"]
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memberships: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memberships_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          active_organization_id: string | null
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          active_organization_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          active_organization_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_org_role: {
+        Args: {
+          _org_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_confirmed_date_available: {
+        Args: {
+          _end: string
+          _ignore_id: string
+          _org_id: string
+          _start: string
+        }
+        Returns: boolean
+      }
+      is_member_of_org: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "comercial" | "financeiro"
+      contract_status: "pending" | "signed" | "canceled"
+      event_status: "negotiation" | "confirmed" | "blocked" | "hold"
+      funnel_stage:
+        | "Prospecção"
+        | "Contato"
+        | "Proposta"
+        | "Negociação"
+        | "Contrato"
+        | "Fechado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +454,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "comercial", "financeiro"],
+      contract_status: ["pending", "signed", "canceled"],
+      event_status: ["negotiation", "confirmed", "blocked", "hold"],
+      funnel_stage: [
+        "Prospecção",
+        "Contato",
+        "Proposta",
+        "Negociação",
+        "Contrato",
+        "Fechado",
+      ],
+    },
   },
 } as const

@@ -14,58 +14,40 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent, CalendarStatus } from "@/lib/calendar-types";
 import { statusLabel } from "@/lib/calendar-utils";
+import { useOrg } from "@/providers/OrgProvider";
+import { useCalendarEvents } from "@/hooks/useCrmQueries";
+import { db } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 import { MonthSummary } from "./MonthSummary";
 import { DetailsPanel } from "./DetailsPanel";
 import { EventDialog, type EventDialogResult } from "./EventDialog";
 import { CalendarClock, Filter, Plus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
-const demoEvents: CalendarEvent[] = [
-  {
-    id: "e1",
-    title: "Show — Rodeio Municipal",
-    status: "confirmed",
-    start: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(),
-    contractorName: "Prefeitura Municipal",
-    city: "Itumbiara",
-    state: "GO",
-    fee: 28000,
-    funnelStage: "Fechado",
-    contractStatus: "Assinado",
-    contractUrl: "https://example.com/contrato/123",
-  },
-  {
-    id: "e2",
-    title: "Negociação — Festa do Peão",
-    status: "negotiation",
-    start: new Date(Date.now() + 1000 * 60 * 60 * 24 * 9).toISOString(),
-    contractorName: "Produções XYZ",
-    city: "Uberlândia",
-    state: "MG",
-    fee: 24000,
-    funnelStage: "Proposta",
-    contractStatus: "Pendente",
-    leadUrl: "https://example.com/leads/456",
-  },
-  {
-    id: "e3",
-    title: "Bloqueado — Viagem longa",
-    status: "blocked",
-    start: new Date(Date.now() + 1000 * 60 * 60 * 24 * 12).toISOString(),
-    notes: "Dia reservado para deslocamento e logística.",
-  },
-  {
-    id: "e4",
-    title: "Reserva técnica — Opção",
-    status: "hold",
-    start: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
-    contractorName: "Expo Center",
-    city: "Ribeirão Preto",
-    state: "SP",
-    funnelStage: "Negociação",
-    contractStatus: "Pendente",
-  },
-];
+function mapDbEventToUi(row: any): CalendarEvent {
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    start: row.start_time,
+    end: row.end_time ?? undefined,
+    city: row.city ?? undefined,
+    state: row.state ?? undefined,
+    fee: row.fee ?? undefined,
+    funnelStage: row.stage ?? undefined,
+    contractStatus:
+      row.contract_status === "pending"
+        ? "Pendente"
+        : row.contract_status === "signed"
+          ? "Assinado"
+          : row.contract_status === "canceled"
+            ? "Cancelado"
+            : undefined,
+    notes: row.notes ?? undefined,
+  };
+}
 
 function statusClass(status: CalendarEvent["status"]) {
   switch (status) {
@@ -94,7 +76,10 @@ function eventBg(status: CalendarEvent["status"]) {
 }
 
 export function ArtistCalendarPage() {
-  const [events, setEvents] = React.useState<CalendarEvent[]>(demoEvents);
+  const { activeOrgId } = useOrg();
+  const { data: dbEvents = [], isLoading } = useCalendarEvents(activeOrgId);
+  const events = React.useMemo(() => dbEvents.map(mapDbEventToUi), [dbEvents]);
+  const qc = useQueryClient();
   const [selected, setSelected] = React.useState<CalendarEvent | null>(null);
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -149,29 +134,73 @@ export function ArtistCalendarPage() {
     setSelected(ev);
   }
 
-  function handleEventDrop(arg: EventDropArg) {
+  async function handleEventDrop(arg: EventDropArg) {
     const id = arg.event.id;
     const nextStart = arg.event.start?.toISOString();
     if (!nextStart) return;
 
-    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, start: nextStart } : e)));
-    if (selected?.id === id) setSelected((s) => (s ? { ...s, start: nextStart } : s));
+    try {
+      const { error } = await db.from("calendar_events").update({ start_time: nextStart }).eq("id", id);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["calendar_events", activeOrgId] });
+      if (selected?.id === id) setSelected((s) => (s ? { ...s, start: nextStart } : s));
+    } catch (e: any) {
+      toast("Não foi possível mover o evento", { description: e?.message ?? "" });
+      arg.revert();
+    }
   }
 
-  function handleDialogResult(result: EventDialogResult) {
+  async function handleDialogResult(result: EventDialogResult) {
+    if (!activeOrgId) return;
+
     if (result.type === "save") {
-      setEvents((prev) => {
-        const exists = prev.some((e) => e.id === result.event.id);
-        return exists ? prev.map((e) => (e.id === result.event.id ? result.event : e)) : [result.event, ...prev];
-      });
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        toast("Você precisa estar logado");
+        return;
+      }
+
+      const payload = {
+        id: result.event.id,
+        organization_id: activeOrgId,
+        status: result.event.status,
+        title: result.event.title,
+        start_time: result.event.start,
+        end_time: result.event.end ?? null,
+        city: result.event.city ?? null,
+        state: result.event.state ?? null,
+        fee: result.event.fee ?? null,
+        stage: result.event.funnelStage ?? null,
+        contract_status:
+          result.event.contractStatus === "Pendente"
+            ? "pending"
+            : result.event.contractStatus === "Assinado"
+              ? "signed"
+              : result.event.contractStatus === "Cancelado"
+                ? "canceled"
+                : null,
+        notes: result.event.notes ?? null,
+        created_by: user.id,
+      };
+
+      const { error } = await db.from("calendar_events").upsert(payload, { onConflict: "id" });
+      if (error) {
+        toast("Não foi possível salvar", { description: error.message });
+        return;
+      }
+      await qc.invalidateQueries({ queryKey: ["calendar_events", activeOrgId] });
       setSelected(result.event);
       return;
     }
 
     if (result.type === "delete") {
-      setEvents((prev) => prev.filter((e) => e.id !== result.id));
+      const { error } = await db.from("calendar_events").delete().eq("id", result.id);
+      if (error) {
+        toast("Não foi possível remover", { description: error.message });
+        return;
+      }
+      await qc.invalidateQueries({ queryKey: ["calendar_events", activeOrgId] });
       setSelected((s) => (s?.id === result.id ? null : s));
-      return;
     }
   }
 
