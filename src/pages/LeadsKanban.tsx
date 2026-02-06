@@ -8,13 +8,18 @@ import { useLeads } from "@/hooks/useCrmQueries";
 import { db } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, MapPin, Calendar, DollarSign, Building2, Edit2, TrendingUp, Handshake } from "lucide-react";
+import { Plus, MapPin, Calendar, DollarSign, Building2, Edit2, TrendingUp, Handshake, Tag } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { formatMoneyBRL } from "@/lib/calendar-utils";
 import { LeadDialog } from "@/components/leads/LeadDialog";
 import { mockLeads } from "@/lib/mock-data";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportButton } from "@/components/ui/export-button";
+import { DuplicateDetector } from "@/components/data/DuplicateDetector";
+import { AdvancedFilters, useFilteredData, type FilterConfig } from "@/components/data/AdvancedFilters";
+import { TagManager } from "@/components/data/TagManager";
+import { CompletenessIndicator, LEAD_REQUIRED_FIELDS, LEAD_OPTIONAL_FIELDS } from "@/components/data/CompletenessIndicator";
+import { useEntityTags } from "@/hooks/useDataOrganization";
 import type { FunnelStage } from "@/lib/calendar-types";
 
 const STAGES: FunnelStage[] = ["Prospecção", "Contato", "Proposta", "Negociação", "Contrato", "Fechado"];
@@ -46,21 +51,42 @@ const stageHeaderColors: Record<FunnelStage, string> = {
   "Fechado": "from-green-500 to-green-600",
 };
 
+// Filter configuration
+const LEAD_FILTERS: FilterConfig[] = [
+  { key: "stage", label: "Etapa", type: "select", options: STAGES.map(s => ({ value: s, label: s })) },
+  { key: "contractor_type", label: "Tipo", type: "select", options: [
+    { value: "Prefeitura", label: "Prefeitura" },
+    { value: "Produtor", label: "Produtor" },
+    { value: "Casa de Shows", label: "Casa de Shows" },
+    { value: "Evento Corporativo", label: "Evento Corporativo" },
+    { value: "Festival", label: "Festival" },
+  ]},
+  { key: "state", label: "Estado", type: "text" },
+];
+
 export function LeadsKanbanPage() {
   const { activeOrgId } = useOrg();
   const { data: leads = [], refetch } = useLeads(activeOrgId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<any>(null);
+  const [filters, setFilters] = useState<Record<string, any>>({});
 
   // Use mock data if no real data exists
   const displayLeads = leads.length > 0 ? leads : mockLeads;
+  
+  // Apply filters
+  const filteredLeads = useFilteredData(
+    displayLeads,
+    filters,
+    ["contractor_name", "city", "venue_name", "contact_email"]
+  );
 
   const leadsByStage = useMemo(() => {
     return STAGES.reduce((acc, stage) => {
-      acc[stage] = displayLeads.filter((l: any) => l.stage === stage);
+      acc[stage] = filteredLeads.filter((l: any) => l.stage === stage);
       return acc;
     }, {} as Record<FunnelStage, any[]>);
-  }, [displayLeads]);
+  }, [filteredLeads]);
 
   // Calculate totals per stage
   const stageTotals = useMemo(() => {
@@ -72,8 +98,8 @@ export function LeadsKanbanPage() {
 
   // Total pipeline value
   const totalPipeline = useMemo(() => {
-    return displayLeads.reduce((sum: number, l: any) => sum + (l.fee || 0), 0);
-  }, [displayLeads]);
+    return filteredLeads.reduce((sum: number, l: any) => sum + (l.fee || 0), 0);
+  }, [filteredLeads]);
 
   async function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
@@ -212,12 +238,31 @@ export function LeadsKanbanPage() {
               <span className="font-bold text-primary">{formatMoneyBRL(totalPipeline)}</span>
             </div>
           </Card>
-          <ExportButton type="leads" data={displayLeads} />
+          <ExportButton type="leads" data={filteredLeads} />
           <Button onClick={openCreateDialog} className="gap-2">
             <Plus className="h-4 w-4" />
             Novo Lead
           </Button>
         </div>
+      </div>
+
+      {/* Filters and Duplicate Detection */}
+      <div className="space-y-4">
+        <AdvancedFilters
+          filters={LEAD_FILTERS}
+          values={filters}
+          onChange={setFilters}
+        />
+        
+        {leads.length > 0 && (
+          <DuplicateDetector
+            leads={displayLeads}
+            onView={(id) => {
+              const lead = displayLeads.find((l: any) => l.id === id);
+              if (lead) openEditDialog(lead);
+            }}
+          />
+        )}
       </div>
 
       {/* Empty State */}
@@ -336,6 +381,21 @@ export function LeadsKanbanPage() {
                                     {formatMoneyBRL(lead.fee)}
                                   </div>
                                 )}
+
+                                {/* Tags */}
+                                {leads.length > 0 && (
+                                  <div onClick={(e) => e.stopPropagation()}>
+                                    <TagManager entityType="lead" entityId={lead.id} compact />
+                                  </div>
+                                )}
+
+                                {/* Completeness */}
+                                <CompletenessIndicator
+                                  data={lead}
+                                  requiredFields={LEAD_REQUIRED_FIELDS}
+                                  optionalFields={LEAD_OPTIONAL_FIELDS}
+                                  showLabel={false}
+                                />
                               </div>
                             </Card>
                           )}
