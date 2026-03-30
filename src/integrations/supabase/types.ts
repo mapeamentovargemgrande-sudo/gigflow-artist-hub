@@ -345,6 +345,9 @@ export type Database = {
       }
       leads: {
         Row: {
+          archived: boolean
+          archived_at: string | null
+          archived_by: string | null
           city: string | null
           contact_email: string | null
           contact_id: string | null
@@ -368,6 +371,9 @@ export type Database = {
           venue_name: string | null
         }
         Insert: {
+          archived?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
           city?: string | null
           contact_email?: string | null
           contact_id?: string | null
@@ -391,6 +397,9 @@ export type Database = {
           venue_name?: string | null
         }
         Update: {
+          archived?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
           city?: string | null
           contact_email?: string | null
           contact_id?: string | null
@@ -893,6 +902,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_lead: {
+        Args: { p_lead_id: string; p_user_id?: string }
+        Returns: undefined
+      }
       has_org_role: {
         Args: {
           _org_id: string
@@ -914,6 +927,7 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      unarchive_lead: { Args: { p_lead_id: string }; Returns: undefined }
     }
     Enums: {
       activity_action:
